@@ -192,6 +192,27 @@ html[lang="fr"] .form-head,html[lang="fr"] .form{text-align:left}
   #home .quick-places{display:none!important}
 }
 
+
+/* Glass location inputs + luminous circular location indicators */
+.map-search{background:rgba(14,20,29,.82)!important;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1)!important;border-radius:20px!important;box-shadow:0 12px 30px rgba(0,0,0,.28)!important}
+.place-row{height:54px!important;font-size:14px!important;color:#f5f7fb!important}
+.place-row span{color:#edf2f8!important;font-weight:500}
+.place-row .dot{width:11px;height:11px;flex:0 0 11px;border-radius:50%;border:2px solid rgba(255,255,255,.55);box-sizing:content-box}
+.place-row .green-dot{background:#8ef000;box-shadow:0 0 8px #8ef000,0 0 18px #8ef00070;border-color:#d8ff9a}
+.place-row .red-dot{background:#ff465e;box-shadow:0 0 8px #ff465e,0 0 18px #ff465e70;border-color:#ffb0ba}
+.place-row b{color:#dbe3ed!important}
+.place-row .plus{background:#05080d!important;color:#fff!important;border:1px solid rgba(255,255,255,.08)}
+.quick-places{display:none!important}.map-status{display:none!important}
+.ride-picker-head{color:#fff!important;font-size:16px!important}
+.ride-types{gap:10px!important}
+.ride-type{position:relative;overflow:hidden;min-height:142px!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:20px!important;background:linear-gradient(155deg,#151a22 0%,#0d1118 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 24px rgba(0,0,0,.22)!important;transition:border-color .2s,box-shadow .2s,transform .2s!important}
+.ride-type:active{transform:scale(.98)}
+.ride-type.selected{border:1.5px solid #8ef000!important;box-shadow:0 0 0 1px rgba(142,240,0,.35),0 0 16px rgba(142,240,0,.22),inset 0 0 18px rgba(142,240,0,.07)!important;background:linear-gradient(155deg,#171e18 0%,#0d1310 100%)!important}
+.ride-type b{color:#fff!important;font-size:14px!important;font-weight:750!important}
+.ride-type small{color:#bdc6d2!important;font-size:12px!important}
+.car-art{height:64px!important;margin-bottom:7px!important}
+.car-art svg{max-width:155px!important;height:66px!important;filter:drop-shadow(0 8px 7px #000b)!important}
+
 </style>
 </head>
 <body>
@@ -208,9 +229,9 @@ html[lang="fr"] .form-head,html[lang="fr"] .form{text-align:left}
         <button class="place-row" onclick="setMapMode('from')"><i class="dot green-dot"></i><span id="fromMapLabel">Choisir le départ sur la carte</span><b>⌖</b></button>
         <button class="place-row" onclick="setMapMode('to')"><i class="dot red-dot"></i><span id="toMapLabel">Choisir la destination sur la carte</span><b class="plus">＋</b></button>
       </div>
-      <div class="quick-places"><button onclick="setDestination('Maison')">⌂ <span>Maison</span></button><button onclick="setDestination('Travail')">▣ <span>Travail</span></button><button onclick="setDestination('Aéroport')">✈ <span>Aéroport</span></button></div>
+
       <button class="locate dark-locate" onclick="locateMe()" aria-label="Me localiser">➤</button>
-      <div class="map-status"><span id="mapStatus">Carte réelle · Touchez la carte pour choisir un point</span></div>
+      <div class="map-status" aria-live="polite"><span id="mapStatus" hidden></span></div>
     </div>
     <main class="content dark-content">
       <div class="ride-picker-head"><b>Choisissez votre véhicule</b><button onclick="toast('Plus d’options bientôt disponibles')">Voir tout</button></div>
@@ -250,9 +271,10 @@ function initRealMap(){
 }
 function setMapMode(mode){mapPickMode=mode;const label=mode==='from'?'Touchez la carte pour définir le départ':'Touchez la carte pour définir la destination';document.getElementById('mapStatus').textContent=label;toast(label)}
 function makeMapIcon(color,label){return L.divIcon({className:'',html:'<div style="width:25px;height:25px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:'+color+';border:3px solid #fff;box-shadow:0 3px 12px #0008"><span style="display:block;transform:rotate(45deg);color:#101720;font-weight:900;font-size:11px;text-align:center;line-height:19px">'+label+'</span></div>',iconSize:[25,25],iconAnchor:[12,25]})}
-function setMapPoint(latlng){if(!mahattatiMap)initRealMap();const coords=latlng.lat.toFixed(5)+', '+latlng.lng.toFixed(5);if(mapPickMode==='from'){if(pickupMarker)mahattatiMap.removeLayer(pickupMarker);pickupMarker=L.marker(latlng,{icon:makeMapIcon('#c6ff00','D')}).addTo(mahattatiMap).bindPopup('Point de départ');document.getElementById('rideFrom').value='Coordonnées GPS : '+coords;document.getElementById('fromMapLabel').textContent='Départ : '+coords;mapPickMode='to';document.getElementById('mapStatus').textContent='Départ défini · Touchez la destination';toast('Départ choisi sur la carte')}else{if(destinationMarker)mahattatiMap.removeLayer(destinationMarker);destinationMarker=L.marker(latlng,{icon:makeMapIcon('#ff5d68','A')}).addTo(mahattatiMap).bindPopup('Destination');document.getElementById('rideTo').value='Coordonnées GPS : '+coords;document.getElementById('toMapLabel').textContent='Destination : '+coords;mapPickMode='from';document.getElementById('mapStatus').textContent='Trajet sélectionné · Vous pouvez modifier les points';toast('Destination choisie sur la carte')}drawRoute()}
+async function reverseAddress(latlng){const fallback=latlng.lat.toFixed(5)+', '+latlng.lng.toFixed(5);try{const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(latlng.lat)+'&lon='+encodeURIComponent(latlng.lng)+'&zoom=18&addressdetails=1';const r=await fetch(url,{headers:{'Accept-Language':'fr'}});if(!r.ok)throw new Error('geocoding');const d=await r.json();const a=d.address||{};const street=a.road||a.pedestrian||a.residential||a.path;const area=a.suburb||a.neighbourhood||a.city_district||a.village||a.town||a.city;const label=[street,area].filter(Boolean).join(', ')||d.name||d.display_name;if(!label)throw new Error('no address');return label}catch(e){return 'Position sur la carte ('+fallback+')'}}
+async function setMapPoint(latlng){if(!mahattatiMap)initRealMap();const isFrom=mapPickMode==='from';const marker=isFrom?pickupMarker:destinationMarker;if(marker)mahattatiMap.removeLayer(marker);const newMarker=L.marker(latlng,{icon:makeMapIcon(isFrom?'#8ef000':'#ff465e',isFrom?'D':'A')}).addTo(mahattatiMap).bindPopup(isFrom?'Point de départ':'Destination');if(isFrom)pickupMarker=newMarker;else destinationMarker=newMarker;const labelEl=document.getElementById(isFrom?'fromMapLabel':'toMapLabel');const inputEl=document.getElementById(isFrom?'rideFrom':'rideTo');labelEl.textContent=(isFrom?'Départ : ':'Destination : ')+'Recherche de l’adresse…';const address=await reverseAddress(latlng);inputEl.value=address;labelEl.textContent=(isFrom?'Départ : ':'Destination : ')+address;mapPickMode=isFrom?'to':'from';drawRoute();toast((isFrom?'Départ : ':'Destination : ')+address)}
 function drawRoute(){if(!mahattatiMap||!pickupMarker||!destinationMarker)return;if(routeLine)mahattatiMap.removeLayer(routeLine);routeLine=L.polyline([pickupMarker.getLatLng(),destinationMarker.getLatLng()],{color:'#c6ff00',weight:5,opacity:.9,dashArray:'10 8'}).addTo(mahattatiMap);mahattatiMap.fitBounds(routeLine.getBounds().pad(.25),{maxZoom:15})}
-function locateMe(){if(!navigator.geolocation){toast('La géolocalisation n’est pas prise en charge');return}document.getElementById('mapStatus').textContent='Recherche de votre position…';navigator.geolocation.getCurrentPosition(pos=>{const point={lat:pos.coords.latitude,lng:pos.coords.longitude};if(!mahattatiMap)initRealMap();mahattatiMap.setView(point,16);mapPickMode='from';setMapPoint(point);document.getElementById('mapStatus').textContent='Votre position a été choisie comme départ'},()=>{document.getElementById('mapStatus').textContent='Position non autorisée · Touchez la carte pour choisir un point';toast('Autorisez la localisation dans votre navigateur puis réessayez')},{enableHighAccuracy:true,timeout:10000,maximumAge:30000})}
+function locateMe(){if(!navigator.geolocation){toast('La géolocalisation n’est pas prise en charge');return}document.getElementById('mapStatus').textContent='';navigator.geolocation.getCurrentPosition(pos=>{const point={lat:pos.coords.latitude,lng:pos.coords.longitude};if(!mahattatiMap)initRealMap();mahattatiMap.setView(point,16);mapPickMode='from';setMapPoint(point);document.getElementById('mapStatus').textContent=''},()=>{document.getElementById('mapStatus').textContent='';toast('Autorisez la localisation dans votre navigateur puis réessayez')},{enableHighAccuracy:true,timeout:10000,maximumAge:30000})}
 
 function submitRequest(type){let data;if(type==='ride'){data={type:'Trajet en voiture',from:val('rideFrom'),to:val('rideTo'),price:val('ridePrice'),extra:val('passengers')+' • '+val('rideWhen')}}else{data={type:'Livraison de colis',from:val('parcelFrom'),to:val('parcelTo'),price:val('parcelPrice'),extra:'Destinataire : '+val('parcelPhone')+' • '+val('parcelDesc')}}if(!data.from||!data.to||!data.price||Number(data.price)<=0){toast('Veuillez renseigner le départ, la destination et le prix');return}if(type==='parcel'&&!val('parcelPhone')){toast('Veuillez saisir le téléphone du destinataire');return}requests.unshift({...data,id:Date.now(),status:'Démo — non envoyée'});renderOrders();toast('Votre demande a été enregistrée dans la démo');showScreen('orders')}
 function val(id){return document.getElementById(id).value.trim()}function renderOrders(){let el=document.getElementById('ordersList');if(!requests.length){el.innerHTML='<div class="orders-empty"><div class="big">🧾</div><h2>Aucune demande pour le moment</h2><p>Vos trajets et livraisons apparaîtront ici après leur création.</p><button class="primary" onclick="showScreen(\'home\')">Nouvelle demande</button></div>';return}el.innerHTML=requests.map(r=>`<div class="mini-card" style="align-items:flex-start;margin-bottom:12px"><div class="mini-icon">${r.type.includes('voiture')?'🚗':'📦'}</div><div style="flex:1;min-width:0"><b>${r.type}</b><small style="display:block;margin-top:6px">${escapeHtml(r.from)} ← ${escapeHtml(r.to)}</small><small style="display:block;margin-top:4px">${escapeHtml(r.extra)}</small><strong style="display:block;margin-top:8px">${escapeHtml(r.price)} DZD</strong><small style="display:block;margin-top:6px;color:#9a7211">${r.status}</small></div></div>`).join('')}
