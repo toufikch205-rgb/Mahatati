@@ -274,7 +274,68 @@ function makeMapIcon(color,label){return L.divIcon({className:'',html:'<div styl
 async function reverseAddress(latlng){const fallback=latlng.lat.toFixed(5)+', '+latlng.lng.toFixed(5);try{const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(latlng.lat)+'&lon='+encodeURIComponent(latlng.lng)+'&zoom=18&addressdetails=1';const r=await fetch(url,{headers:{'Accept-Language':'fr'}});if(!r.ok)throw new Error('geocoding');const d=await r.json();const a=d.address||{};const street=a.road||a.pedestrian||a.residential||a.path;const area=a.suburb||a.neighbourhood||a.city_district||a.village||a.town||a.city;const label=[street,area].filter(Boolean).join(', ')||d.name||d.display_name;if(!label)throw new Error('no address');return label}catch(e){return 'Position sur la carte ('+fallback+')'}}
 async function setMapPoint(latlng){if(!mahattatiMap)initRealMap();const isFrom=mapPickMode==='from';const marker=isFrom?pickupMarker:destinationMarker;if(marker)mahattatiMap.removeLayer(marker);const newMarker=L.marker(latlng,{icon:makeMapIcon(isFrom?'#8ef000':'#ff465e',isFrom?'D':'A')}).addTo(mahattatiMap).bindPopup(isFrom?'Point de départ':'Destination');if(isFrom)pickupMarker=newMarker;else destinationMarker=newMarker;const labelEl=document.getElementById(isFrom?'fromMapLabel':'toMapLabel');const inputEl=document.getElementById(isFrom?'rideFrom':'rideTo');labelEl.textContent=(isFrom?'Départ : ':'Destination : ')+'Recherche de l’adresse…';const address=await reverseAddress(latlng);inputEl.value=address;labelEl.textContent=(isFrom?'Départ : ':'Destination : ')+address;mapPickMode=isFrom?'to':'from';drawRoute();toast((isFrom?'Départ : ':'Destination : ')+address)}
 function drawRoute(){if(!mahattatiMap||!pickupMarker||!destinationMarker)return;if(routeLine)mahattatiMap.removeLayer(routeLine);routeLine=L.polyline([pickupMarker.getLatLng(),destinationMarker.getLatLng()],{color:'#c6ff00',weight:5,opacity:.9,dashArray:'10 8'}).addTo(mahattatiMap);mahattatiMap.fitBounds(routeLine.getBounds().pad(.25),{maxZoom:15})}
-function locateMe(){if(!navigator.geolocation){toast('La géolocalisation n’est pas prise en charge');return}document.getElementById('mapStatus').textContent='';navigator.geolocation.getCurrentPosition(pos=>{const point={lat:pos.coords.latitude,lng:pos.coords.longitude};if(!mahattatiMap)initRealMap();mahattatiMap.setView(point,16);mapPickMode='from';setMapPoint(point);document.getElementById('mapStatus').textContent=''},()=>{document.getElementById('mapStatus').textContent='';toast('Autorisez la localisation dans votre navigateur puis réessayez')},{enableHighAccuracy:true,timeout:10000,maximumAge:30000})}
+let locationWatchId=null, lastAutoAddressAt=0, locationRetryTimer=null, locationPermissionState=null;
+function locationError(err){
+  const status=document.getElementById('mapStatus');
+  if(err&&err.code===1){
+    status.textContent='Accès au site désactivé : activez la localisation dans les paramètres du navigateur';
+    toast('Autorisation refusée. Activez Localisation pour ce site dans les paramètres du navigateur, puis réessayez.');
+    stopLocationWatch();
+    return;
+  }
+  status.textContent='Position indisponible — nouvelle tentative…';
+  toast('Position indisponible. Vérifiez que la localisation du téléphone est activée.');
+  if(locationRetryTimer)clearTimeout(locationRetryTimer);
+  locationRetryTimer=setTimeout(()=>requestCurrentLocation(false),5000);
+}
+function stopLocationWatch(){if(locationWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(locationWatchId);locationWatchId=null}}
+function applyPhonePosition(pos, first=false){
+  const point={lat:pos.coords.latitude,lng:pos.coords.longitude};
+  if(!mahattatiMap)initRealMap();
+  if(first){mahattatiMap.setView(point,16);mapPickMode='from';setMapPoint(point);}
+  else {
+    // Keep the pickup marker synchronized with the phone without repeatedly geocoding every GPS update.
+    if(!pickupMarker){mapPickMode='from';setMapPoint(point)}
+    else {
+      pickupMarker.setLatLng(point);
+      if(mahattatiMap.getZoom()>=14)mahattatiMap.panTo(point,{animate:true,duration:.35});
+      const now=Date.now();
+      if(now-lastAutoAddressAt>30000){lastAutoAddressAt=now;reverseAddress(point).then(address=>{
+        const input=document.getElementById('rideFrom'), label=document.getElementById('fromMapLabel');
+        if(input&&label){input.value=address;label.textContent='Départ : '+address;}
+      });}
+    }
+  }
+  document.getElementById('mapStatus').textContent='Position du téléphone actualisée';
+}
+function startLocationWatch(){
+  if(!navigator.geolocation||locationWatchId!==null)return;
+  locationWatchId=navigator.geolocation.watchPosition(pos=>{
+    if(locationRetryTimer){clearTimeout(locationRetryTimer);locationRetryTimer=null;}
+    applyPhonePosition(pos,false);
+  },locationError,{enableHighAccuracy:true,timeout:20000,maximumAge:5000});
+}
+function requestCurrentLocation(startWatch=true){
+  if(!navigator.geolocation){toast('La géolocalisation n’est pas prise en charge par ce navigateur');return;}
+  document.getElementById('mapStatus').textContent='Demande d’accès à la localisation…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    if(locationRetryTimer){clearTimeout(locationRetryTimer);locationRetryTimer=null;}
+    applyPhonePosition(pos,true);
+    if(startWatch)startLocationWatch();
+  },locationError,{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+function locateMe(){requestCurrentLocation(true)}
+// If the browser exposes permission status, react when access changes. A denied permission
+// must be re-enabled by the user in browser/site settings; browsers do not allow forced prompts.
+if(navigator.permissions&&navigator.permissions.query){
+  navigator.permissions.query({name:'geolocation'}).then(permission=>{
+    locationPermissionState=permission;
+    permission.onchange=()=>{
+      if(permission.state==='granted'){requestCurrentLocation(true)}
+      else if(permission.state==='denied'){stopLocationWatch();document.getElementById('mapStatus').textContent='Activez la localisation pour ce site dans les paramètres du navigateur';}
+    };
+  }).catch(()=>{});
+}
 
 function submitRequest(type){let data;if(type==='ride'){data={type:'Trajet en voiture',from:val('rideFrom'),to:val('rideTo'),price:val('ridePrice'),extra:val('passengers')+' • '+val('rideWhen')}}else{data={type:'Livraison de colis',from:val('parcelFrom'),to:val('parcelTo'),price:val('parcelPrice'),extra:'Destinataire : '+val('parcelPhone')+' • '+val('parcelDesc')}}if(!data.from||!data.to||!data.price||Number(data.price)<=0){toast('Veuillez renseigner le départ, la destination et le prix');return}if(type==='parcel'&&!val('parcelPhone')){toast('Veuillez saisir le téléphone du destinataire');return}requests.unshift({...data,id:Date.now(),status:'Démo — non envoyée'});renderOrders();toast('Votre demande a été enregistrée dans la démo');showScreen('orders')}
 function val(id){return document.getElementById(id).value.trim()}function renderOrders(){let el=document.getElementById('ordersList');if(!requests.length){el.innerHTML='<div class="orders-empty"><div class="big">🧾</div><h2>Aucune demande pour le moment</h2><p>Vos trajets et livraisons apparaîtront ici après leur création.</p><button class="primary" onclick="showScreen(\'home\')">Nouvelle demande</button></div>';return}el.innerHTML=requests.map(r=>`<div class="mini-card" style="align-items:flex-start;margin-bottom:12px"><div class="mini-icon">${r.type.includes('voiture')?'🚗':'📦'}</div><div style="flex:1;min-width:0"><b>${r.type}</b><small style="display:block;margin-top:6px">${escapeHtml(r.from)} ← ${escapeHtml(r.to)}</small><small style="display:block;margin-top:4px">${escapeHtml(r.extra)}</small><strong style="display:block;margin-top:8px">${escapeHtml(r.price)} DZD</strong><small style="display:block;margin-top:6px;color:#9a7211">${r.status}</small></div></div>`).join('')}
@@ -284,7 +345,7 @@ window.addEventListener('load',()=>{
     initRealMap();
     // Demander automatiquement l'autorisation de localisation à l'ouverture.
     if(navigator.geolocation){
-      document.getElementById('mapStatus').textContent='Autorisez la localisation pour afficher votre position sur la carte';
+      document.getElementById('mapStatus').textContent='Autorisez la localisation pour afficher et actualiser votre position';
       locateMe();
     }else{
       document.getElementById('mapStatus').textContent='Carte réelle · Touchez la carte pour choisir un point';
