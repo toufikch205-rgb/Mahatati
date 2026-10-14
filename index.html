@@ -91,6 +91,11 @@ html[lang="fr"] .car-art{height:64px;margin-bottom:4px}
 .map-car svg{width:100%;height:100%;display:block}
 html[lang="fr"] .form-head,html[lang="fr"] .form{text-align:left}
 
+/* Mobile layout: keep the map within roughly the upper half of the screen */
+.dark-map{height: min(36vh, 320px)!important; min-height: 250px;}
+@media (max-height: 700px){.dark-map{height: 250px!important;min-height:230px;}}
+@media (min-width: 600px){.dark-map{height: 320px!important;min-height:280px;}}
+
 /* Real interactive map (Leaflet + OpenStreetMap) */
 .dark-map{background:#0c121b!important;background-image:none!important;isolation:isolate}
 .dark-map:before,.dark-map:after{display:none!important}
@@ -105,6 +110,45 @@ html[lang="fr"] .form-head,html[lang="fr"] .form{text-align:left}
 .leaflet-marker-icon{filter:drop-shadow(0 3px 6px #0008)}
 .map-status{position:absolute;z-index:500;left:15px;right:15px;bottom:72px;text-align:center;pointer-events:none}
 .map-status span{display:inline-block;background:#0b1119e8;border:1px solid #2c3948;color:#dce5ef;padding:7px 11px;border-radius:20px;font-size:11px}
+
+
+/* Compact welcome bar: free more vertical space for the map and vehicle cards */
+.home-top{
+  height:64px !important;
+  min-height:64px !important;
+  box-sizing:border-box;
+  padding:7px 14px !important;
+  gap:10px !important;
+}
+.home-top .menu-btn,
+.home-top .notify-btn{
+  width:38px !important;
+  height:38px !important;
+  min-width:38px !important;
+  flex:0 0 38px;
+  font-size:20px !important;
+}
+.home-top .greeting{
+  min-width:0;
+  gap:1px !important;
+  line-height:1.15;
+}
+.home-top .greeting small{
+  font-size:10px !important;
+  line-height:1.1;
+}
+.home-top .greeting strong{
+  font-size:14px !important;
+  line-height:1.2;
+  display:block;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+@media (max-width:360px){
+  .home-top{padding:6px 10px !important;gap:7px !important}
+  .home-top .greeting strong{font-size:12px !important}
+  .home-top .greeting small{font-size:9px !important}
+}
 
 </style>
 </head>
