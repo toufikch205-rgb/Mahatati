@@ -150,6 +150,48 @@ html[lang="fr"] .form-head,html[lang="fr"] .form{text-align:left}
   .home-top .greeting small{font-size:9px !important}
 }
 
+
+/* Reference-inspired map-first layout: map occupies the upper part of the phone;
+   greeting and its two action buttons float above the map. */
+#home{position:relative}
+#home .dark-map{
+  height:min(53vh,440px)!important;
+  min-height:340px!important;
+  margin-top:0!important;
+}
+#home .home-top{
+  position:absolute!important;
+  top:0!important;left:0!important;right:0!important;
+  z-index:700!important;
+  height:88px!important;min-height:88px!important;
+  padding:18px 18px 8px!important;
+  background:linear-gradient(180deg,rgba(7,12,18,.94),rgba(7,12,18,.68),transparent)!important;
+  border:0!important;
+}
+#home .home-top .menu-btn,
+#home .home-top .notify-btn{
+  width:46px!important;height:46px!important;min-width:46px!important;
+  flex:0 0 46px!important;border-radius:17px!important;
+  background:rgba(13,20,30,.9)!important;
+  border:1px solid #2a3543!important;
+  color:#f1f5f9!important;
+  box-shadow:0 3px 12px #0005!important;
+}
+#home .home-top .greeting{color:#f4f7fb!important}
+#home .home-top .greeting small{font-size:12px!important}
+#home .home-top .greeting strong{font-size:15px!important;white-space:nowrap!important}
+#home .map-search{top:98px!important;left:16px!important;right:16px!important}
+#home .quick-places{display:none!important}
+#home .dark-locate{bottom:18px!important;left:18px!important;z-index:650!important}
+#home .dark-map .leaflet-control-zoom{margin-bottom:18px!important;margin-right:16px!important}
+#home .map-status{bottom:72px!important}
+@media(max-height:700px){
+  #home .dark-map{height:350px!important;min-height:320px!important}
+  #home .home-top{height:80px!important;min-height:80px!important;padding-top:12px!important}
+  #home .map-search{top:88px!important}
+  #home .quick-places{display:none!important}
+}
+
 </style>
 </head>
 <body>
